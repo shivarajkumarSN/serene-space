@@ -1,0 +1,154 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Appointment booking details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "counsellorName": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "time": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "counsellorName", "date", "time"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "AI chat history message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "model"] },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "role", "content"]
+    },
+    "Post": {
+      "title": "Forum Post",
+      "description": "Peer support forum post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "content": { "type": "string" },
+        "likes": { "type": "number" },
+        "replies": { "type": "number" },
+        "isAnonymous": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "content"]
+    },
+    "Resource": {
+      "title": "Wellness Resource",
+      "description": "Article, video, or audio resource",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string", "enum": ["Stress", "Anxiety", "Sleep", "Motivation"] },
+        "type": { "type": "string", "enum": ["article", "video", "audio"] },
+        "url": { "type": "string" },
+        "thumbnail": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["title", "category", "type"]
+    },
+    "MoodEntry": {
+      "title": "Mood Entry",
+      "description": "User mood tracking entry",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "mood": { "type": "string", "enum": ["Happy", "Calm", "Meh", "Stressed", "Sad"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "mood", "timestamp"]
+    },
+    "JournalEntry": {
+      "title": "Journal Entry",
+      "description": "User daily journal entry",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "content", "timestamp"]
+    },
+    "QuizResult": {
+      "title": "Quiz Result",
+      "description": "User quiz performance record",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "quizTitle": { "type": "string" },
+        "score": { "type": "integer" },
+        "totalQuestions": { "type": "integer" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "quizTitle", "score", "totalQuestions", "timestamp"]
+    },
+    "Comment": {
+      "title": "Forum Comment",
+      "description": "Comment on a forum post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "postId": { "type": "string" },
+        "userId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "content": { "type": "string" },
+        "likes": { "type": "number" },
+        "isAnonymous": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "userId", "content"]
+    },
+    "Like": {
+      "title": "Like Tracking",
+      "description": "Tracks which user liked which post or comment",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "targetId": { "type": "string" },
+        "targetType": { "type": "string", "enum": ["post", "comment"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "targetId", "targetType"]
+    }
+  },
+  "firestore": {
+    "users": { "schema": "User", "description": "User collection" },
+    "appointments": { "schema": "Appointment", "description": "Appointments collection" },
+    "messages": { "schema": "Message", "description": "Chat history" },
+    "posts": { "schema": "Post", "description": "Forum posts" },
+    "comments": { "schema": "Comment", "description": "Forum comments" },
+    "likes": { "schema": "Like", "description": "Like tracking collection" },
+    "resources": { "schema": "Resource", "description": "Wellness resources" },
+    "moods": { "schema": "MoodEntry", "description": "User mood tracking" },
+    "journals": { "schema": "JournalEntry", "description": "User daily journals" },
+    "quiz_results": { "schema": "QuizResult", "description": "User quiz results" }
+  }
+}

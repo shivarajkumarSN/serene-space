@@ -1,0 +1,182 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields: uid, displayName, email, photoURL, role, createdAt
+    //
+    // Collection: appointments
+    // Document ID: auto-generated
+    // Fields: userId, counsellorName, date, time, status, createdAt
+    //
+    // Collection: messages
+    // Document ID: auto-generated
+    // Fields: userId, role, content, timestamp
+    //
+    // Collection: posts
+    // Document ID: auto-generated
+    // Fields: userId, authorName, content, likes, replies, isAnonymous, createdAt
+    //
+    // Collection: resources
+    // Document ID: auto-generated
+    // Fields: title, category, type, url, thumbnail, description
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        ((request.auth.token.get('email', '') == "gurupadappa4@gmail.com") ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'student') == 'admin'));
+    }
+
+    function isHardcodedAdmin() {
+      return isAuthenticated() && request.auth.token.get('email', '') == "gurupadappa4@gmail.com";
+    }
+
+    function isUserAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'student') == 'admin';
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.role in ['student', 'admin'];
+    }
+
+    function isValidPost(data) {
+      return data.keys().hasAll(['userId', 'content']) &&
+             data.userId is string &&
+             data.content is string && data.content.size() < 5000 &&
+             (!('likes' in data) || data.likes is number);
+    }
+
+    function isValidComment(data) {
+      return data.keys().hasAll(['postId', 'userId', 'content']) &&
+             data.postId is string &&
+             data.userId is string &&
+             data.content is string && data.content.size() < 2000 &&
+             (!('likes' in data) || data.likes is number);
+    }
+
+    function isValidLikeUpdate(targetId) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']) &&
+             (request.resource.data.likes - resource.data.likes == 1) &&
+             !exists(/databases/$(database)/documents/likes/$(request.auth.uid + '_' + targetId)) &&
+             getAfter(/databases/$(database)/documents/likes/$(request.auth.uid + '_' + targetId)) != null;
+    }
+
+    // Rules
+    match /test/connection {
+      allow read: if true;
+    }
+
+    match /users/{userId} {
+      // Allow users to read their own document or if they are the hardcoded admin
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId || 
+        request.auth.token.get('email', '') == "gurupadappa4@gmail.com" ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'student') == 'admin')
+      );
+
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (
+        (request.auth.uid == userId && (request.resource.data.role == 'student' || request.auth.token.get('email', '') == "gurupadappa4@gmail.com")) ||
+        isAdmin()
+      );
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (
+        (request.auth.uid == userId && request.resource.data.role == resource.data.role) ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /appointments/{appointmentId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && 
+                    request.resource.data.userId == request.auth.uid && 
+                    request.resource.data.status == 'pending';
+      allow update: if isAuthenticated() && (
+        (resource.data.userId == request.auth.uid && 
+         (request.resource.data.status == resource.data.status || request.resource.data.status == 'cancelled')) ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /messages/{messageId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /posts/{postId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidPost(request.resource.data);
+      allow update: if isAuthenticated() && (
+        (resource.data.userId == request.auth.uid && isValidPost(request.resource.data)) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']) && isValidLikeUpdate(postId)) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['replies']))
+      );
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /comments/{commentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidComment(request.resource.data);
+      allow update: if isAuthenticated() && (
+        (resource.data.userId == request.auth.uid && isValidComment(request.resource.data)) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']) && isValidLikeUpdate(commentId))
+      );
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /likes/{likeId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+                    request.auth.uid == request.resource.data.userId &&
+                    likeId == (request.auth.uid + '_' + request.resource.data.targetId);
+      allow update, delete: if false;
+    }
+
+    match /resources/{resourceId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /moods/{moodId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /journals/{journalId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    match /quiz_results/{resultId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}
